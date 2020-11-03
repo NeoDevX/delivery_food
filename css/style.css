@@ -566,6 +566,10 @@ button {
     line-height: 23px;
 }
 
+.swiper-scrollbar {
+    margin-bottom: 20px;
+}
+
 @media (max-width: 1366px) {
     .container {
         max-width: 960px;
@@ -575,7 +579,6 @@ button {
         background-position: center right -300px;
         background-size: 750px;
     }
-
 
     .kebab {
         background-position: top -5px right -93px;
@@ -606,14 +609,11 @@ button {
         max-width: 750px;
     }
 
-
-
     .pizza {
         padding: 50px;
         background-size: 500px;
         background-position: center right -200px;
     }
-
 
     .kebab {
         background-position: top 55px right -100px;
@@ -628,8 +628,6 @@ button {
     .sushi {
         background-position: top 30px right -175px;
     }
-
-
 
     .promo-text {
         font-size: 18px;
@@ -670,12 +668,10 @@ button {
         margin-left: 20px;
     }
 
-
     .pizza {
         background-size: 400px;
         background-position: bottom 50px right -200px;
     }
-
 
     .kebab {
         background-position: top -5px right -74px;
