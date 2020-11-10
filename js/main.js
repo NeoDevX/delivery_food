@@ -3,7 +3,7 @@ import {
   disableScroll,
   enableScroll
 } from './disableScroll.js';
-import Swiper from 'https://unpkg.com/swiper/swiper-bundle.esm.browser.min.js'
+import '../node_modules/swiper/swiper-bundle.min.js'
 
 const RED_COLOR = '#ff0000';
 const LIGHT_RED = '#ff6d4d'
@@ -30,16 +30,24 @@ const restaurantRating = document.querySelector('.rating');
 const restaurantPrice = document.querySelector('.price');
 const restaurantCategory = document.querySelector('.category');
 const inputSearch = document.querySelector('.input-search');
+const modalPrice = document.querySelector('.modal-pricetag');
+const buttonClearCart = document.querySelector('.clear-cart');
+const modalBody = document.querySelector('.modal-body');
 
-let login = localStorage.getItem('gloDeliveryLog');
-let password = localStorage.getItem('gloDeliveryPass');
+let login;
+let password;
 
+const cart = JSON.parse(localStorage.getItem(`gloDelivery_${login}`)) || [];
+
+function saveCart() {
+  localStorage.setItem(`gloDelivery_${login}`, JSON.stringify(cart));
+}
 
 const getData = async function (data) {
   const response = await fetch(data);
 
   if (!response.ok)
-    throw new Error(`Ошибка по адресу: ${data}, статус: ошибка ${response.status}`);
+    throw new Error(`Ошибка по адресу: ${data}, статус: ${response.status}`);
 
   return await response.json();
 }
@@ -49,8 +57,8 @@ function toggleModal() {
 }
 
 function toggleModalAuth() {
-  modalAuth.classList.toggle("is-open");
-  if (modalAuth.classList.contains("is-open")) {
+  modalAuth.classList.toggle('is-open');
+  if (modalAuth.classList.contains('is-open')) {
     disableScroll();
   } else {
     enableScroll();
@@ -77,7 +85,7 @@ function authorized() {
   function logOut() {
     login = null;
     password = null;
-    localStorage.removeItem('gloDelivery');
+    localStorage.removeItem('gloDeliveryLog');
     localStorage.removeItem('gloDeliveryPass');
     buttonAuth.style.display = '';
     userName.style.display = '';
@@ -101,7 +109,7 @@ function notAuthorized() {
     if (validLogin(loginInput.value) && validPass(passwordInput.value)) {
       login = loginInput.value;
       password = passwordInput.value;
-      localStorage.setItem('gloDelivery', login);
+      localStorage.setItem('gloDeliveryLog', login);
       localStorage.setItem('gloDeliveryPass', password);
 
       toggleModalAuth();
@@ -173,21 +181,21 @@ function createCardRestaurant(restaurant) {
   };
 
   const card = `
-        <img src=${image} alt=${name} class="card-image"/>
-        <div class="card-text">
-            <div class="card-heading">
-                <h3 class="card-title">${name}</h3>
-                <span class="card-tag tag">${timeOfDelivery} мин</span>
-            </div>
-            <div class="card-info">
-                <div class="rating">
-                    ${stars}
-                </div>
-                <div class="price">От ${price} ₽</div>
-                <div class="category">${kitchen}</div>
-            </div>
-        </div>
-    `;
+				<img src=${image} alt=${name} class="card-image"/>
+				<div class="card-text">
+						<div class="card-heading">
+								<h3 class="card-title">${name}</h3>
+								<span class="card-tag tag">${timeOfDelivery} мин</span>
+						</div>
+						<div class="card-info">
+								<div class="rating">
+										${stars}
+								</div>
+								<div class="price">От ${price} ₽</div>
+								<div class="category">${kitchen}</div>
+						</div>
+				</div>
+		`;
 
   restaurantCard.insertAdjacentHTML('beforeend', card);
   cardsRestaurants.insertAdjacentElement('beforeend', restaurantCard);
@@ -197,28 +205,30 @@ function createFoodCard({
   price,
   name,
   description,
-  image
+  image,
+  id
 }) {
   const card = document.createElement('div');
   card.className = 'card';
+  card.id = id;
 
   card.insertAdjacentHTML('beforeend',
     `<img src="${image}" alt=${name} class="card-image"/>
-        <div class="card-text">
-            <div class="card-heading">
-                <h3 class="card-title card-title-reg">${name}</h3>
-            </div>
-            <div class="card-info">
-                <div class="ingredients">${description}</div>
-            </div>
-            <div class="card-buttons">
-                <button class="button button-primary button-add-cart">
-                    <span class="button-card-text">В корзину</span>
-                    <span class="button-cart-svg"></span>
-                </button>
-                <strong class="card-price-bold">${price} ₽</strong>
-            </div>
-        </div>`
+				<div class="card-text">
+						<div class="card-heading">
+								<h3 class="card-title card-title-reg">${name}</h3>
+						</div>
+						<div class="card-info">
+								<div class="ingredients">${description}</div>
+						</div>
+						<div class="card-buttons">
+								<button class="button button-primary button-add-cart">
+										<span class="button-card-text">В корзину</span>
+										<span class="button-cart-svg"></span>
+								</button>
+								<strong class="card-price-bold card-price">${price} ₽</strong>
+						</div>
+				</div>`
   );
 
   cardsMenu.insertAdjacentElement('beforeend', card);
@@ -242,7 +252,7 @@ function openRestaurant(event) {
     restaurantCategory.textContent = kitchen;
     buttonOut.style.display = '';
     cartButton.style.display = 'block';
-    cartButton.classList.add('primary'); 
+    cartButton.classList.add('primary');
 
     if (restaurant) {
       cardsMenu.textContent = '';
@@ -250,13 +260,97 @@ function openRestaurant(event) {
       restaurants.classList.add('hide');
       menu.classList.remove('hide');
 
-      getData(`./db/${restaurant.products}`).then(function (data) {
-        data.forEach(createFoodCard);
-      });
-  }
+      getData(`./db/${restaurant.products}`)
+        .then(function (data) {
+          data.forEach(createFoodCard);
+        });
+    }
   } else {
     clearAuth();
     toggleModalAuth();
+  }
+}
+
+function addToCart(event) {
+  const target = event.target;
+  const buttonAddToCart = target.closest('.button-add-cart');
+
+  if (buttonAddToCart) {
+    const card = target.closest('.card');
+    const title = card.querySelector('.card-title-reg').textContent;
+    const cost = card.querySelector('.card-price').textContent;
+    const id = card.id;
+
+    const food = cart.find(function (item) {
+      return item.id === id;
+    })
+
+    if (food) {
+      food.count++;
+    } else {
+      cart.push({
+        title,
+        cost,
+        id,
+        count: 1
+      });
+    }
+  }
+
+  saveCart();
+}
+
+function renderCart() {
+  modalBody.textContent = '';
+  cart.forEach(function ({
+    title,
+    cost,
+    id,
+    count
+  }) {
+    const itemCart = `
+			<div class="food-row">
+				<span class="food-name">${title}</span>
+				<strong class="food-price">${cost}</strong>
+				<div class="food-counter">
+					<button class="counter-button minus-counter" data-id=${id}>-</button>
+					<span class="counter">${count}</span>
+					<button class="counter-button plus-counter" data-id=${id}>+</button>
+				</div>
+			</div>
+		`;
+    if (cart.length > 0)
+      modalBody.insertAdjacentHTML('afterbegin', itemCart);
+  });
+
+  const totalPrice = cart.reduce(function (res, item) {
+    return res + (parseFloat(item.cost) * item.count)
+  }, 0);
+
+  modalPrice.textContent = totalPrice + " ₽";
+}
+
+function changeCount(event) {
+  const target = event.target;
+
+  if (target.classList.contains('counter-button')) {
+    const food = cart.find(function (item) {
+      return item.id === target.dataset.id;
+    });
+
+    if (target.classList.contains('minus-counter')) {
+      food.count--;
+      console.log('minus');
+      if (!food.count) {
+        cart.splice(cart.indexOf(food), 1);
+      }
+    }
+    if (target.classList.contains('plus-counter')) {
+      food.count++;
+      console.log('plus');
+    }
+
+    renderCart();
   }
 }
 
@@ -274,7 +368,25 @@ function init() {
 
     if (buttonAuth.style.display !== '')
       buttonOut.style.display = 'block';
-  
+
+  });
+
+  cardsMenu.addEventListener('click', addToCart);
+
+  cartButton.addEventListener('click', renderCart);
+
+  modalBody.addEventListener('click', changeCount);
+
+  buttonClearCart.addEventListener('click', toggleModal);
+
+  cartButton.addEventListener('click', function () {
+    if (cart.length == 0) {
+      modalBody.insertAdjacentHTML('afterbegin', `
+				<div class="food-row">
+					<span class="food-name">Empty</span>
+				</div>
+			`);
+    }
   });
 
   cartButton.addEventListener("click", toggleModal);
@@ -284,53 +396,53 @@ function init() {
   cardsRestaurants.addEventListener('click', openRestaurant);
 
   inputSearch.addEventListener('keypress', (event) => {
-        if (event.charCode === 13) {
-          let searchValue = event.target.value.trim();
-          
-          if (!searchValue) {
-            event.target.style.backgroundColor = LIGHT_RED;
-            event.target.value = '';
+    if (event.charCode === 13) {
+      let searchValue = event.target.value.trim();
 
-            setTimeout(() => {
-              event.target.style.backgroundColor = '';
-            }, 1000);
+      if (!searchValue) {
+        event.target.style.backgroundColor = LIGHT_RED;
+        event.target.value = '';
 
-            return;
-          }
+        setTimeout(() => {
+          event.target.style.backgroundColor = '';
+        }, 1000);
 
-          getData('./db/partners.json')
-            .then((data) => {
-              return data.map((partner) => {
-                return partner.products;
+        return;
+      }
+
+      getData('./db/partners.json')
+        .then((data) => {
+          return data.map((partner) => {
+            return partner.products;
+          });
+        })
+        .then((links) => {
+          cardsMenu.textContent = '';
+          links.forEach((link) => {
+            getData(`./db/${link}`)
+              .then((data) => {
+                const resultSearch = data.filter((item) => {
+                  const name = item.name.toLowerCase();
+                  return name.includes(searchValue.toLowerCase());
+                });
+
+                restaurantTitle.textContent = 'Результат поиска';
+                restaurantRating.textContent = searchValue;
+                restaurantPrice.textContent = '';
+                restaurantCategory.textContent = 'разное';
+
+                containerPromo.classList.add('hide');
+                restaurants.classList.add('hide');
+                menu.classList.remove('hide');
+
+                resultSearch.forEach(createFoodCard);
               });
-            })
-            .then((links) => {
-              cardsMenu.textContent = '';
-              links.forEach((link) => {
-                getData(`./db/${link}`)
-                  .then((data) => {
-                    const resultSearch = data.filter((item) => {
-                      const name = item.name.toLowerCase();
-                      return name.includes(searchValue.toLowerCase());
-                    }); 
-
-                    restaurantTitle.textContent = 'Результат поиска';
-                    restaurantRating.textContent = searchValue;
-                    restaurantPrice.textContent = '';
-                    restaurantCategory.textContent = 'разное';
-
-                    containerPromo.classList.add('hide');
-                    restaurants.classList.add('hide');
-                    menu.classList.remove('hide');
-
-                    resultSearch.forEach(createFoodCard);
-                  });
-              });
-            });
-          event.target.value = '';
-        }
+          });
+        });
+      event.target.value = '';
+    }
   });
-  
+
   checkAuth();
 
   // slider
