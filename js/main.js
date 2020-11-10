@@ -34,13 +34,19 @@ const modalPrice = document.querySelector('.modal-pricetag');
 const buttonClearCart = document.querySelector('.clear-cart');
 const modalBody = document.querySelector('.modal-body');
 
-let login;
-let password;
+let login = localStorage.getItem('GH_DeliveryLog');
+let password =  localStorage.getItem('GH_DeliveryPass');
 
-const cart = JSON.parse(localStorage.getItem(`gloDelivery_${login}`)) || [];
+const cart = JSON.parse(localStorage.getItem(`GH_Delivery_${login}`)) || [];
 
 function saveCart() {
-  localStorage.setItem(`gloDelivery_${login}`, JSON.stringify(cart));
+  localStorage.setItem(`GH_Delivery_${login}`, JSON.stringify(cart));
+}
+
+function downloadCart() {
+  const cartData = JSON.parse(localStorage.getItem(`GH_Delivery_${login}`));
+  if (cartData)
+    cart.push(...cartData); // like forEach
 }
 
 const getData = async function (data) {
@@ -54,6 +60,11 @@ const getData = async function (data) {
 
 function toggleModal() {
   modal.classList.toggle('is-open');
+  if (modal.classList.contains('is-open')) {
+    disableScroll();
+  } else {
+    enableScroll();
+  }
 }
 
 function toggleModalAuth() {
@@ -85,8 +96,10 @@ function authorized() {
   function logOut() {
     login = null;
     password = null;
-    localStorage.removeItem('gloDeliveryLog');
-    localStorage.removeItem('gloDeliveryPass');
+    userName.textContent = '';
+    cart.length = 0;
+    localStorage.removeItem('GH_DeliveryLog');
+    localStorage.removeItem('GH_DeliveryPass');
     buttonAuth.style.display = '';
     userName.style.display = '';
     buttonOut.style.display = '';
@@ -107,12 +120,14 @@ function notAuthorized() {
   function logIn(event) {
     event.preventDefault();
     if (validLogin(loginInput.value) && validPass(passwordInput.value)) {
+
       login = loginInput.value;
       password = passwordInput.value;
-      localStorage.setItem('gloDeliveryLog', login);
-      localStorage.setItem('gloDeliveryPass', password);
+      localStorage.setItem('GH_DeliveryLog', login);
+      localStorage.setItem('GH_DeliveryPass', password);
 
       toggleModalAuth();
+      downloadCart();
 
       buttonAuth.removeEventListener('click', toggleModalAuth);
       closeAuth.removeEventListener('click', toggleModalAuth);
@@ -239,26 +254,28 @@ function openRestaurant(event) {
 
   if (login) {
     const restaurant = target.closest('.card-restaurant');
-    const {
-      kitchen,
-      name,
-      stars,
-      price
-    } = restaurant.info;
-
-    restaurantTitle.textContent = name;
-    restaurantRating.textContent = stars;
-    restaurantPrice.textContent = `От ${price} ₽`;
-    restaurantCategory.textContent = kitchen;
-    buttonOut.style.display = '';
-    cartButton.style.display = 'block';
-    cartButton.classList.add('primary');
 
     if (restaurant) {
       cardsMenu.textContent = '';
       containerPromo.classList.add('hide');
       restaurants.classList.add('hide');
       menu.classList.remove('hide');
+
+      const {
+        kitchen,
+        name,
+        stars,
+        price
+      } = restaurant.info;
+
+      restaurantTitle.textContent = name;
+      restaurantRating.textContent = stars;
+      restaurantPrice.textContent = `От ${price} ₽`;
+      restaurantCategory.textContent = kitchen;
+      buttonOut.style.display = '';
+      cartButton.style.display = 'block';
+      cartButton.classList.add('primary');
+      location.hash = `#${name}`;
 
       getData(`./db/${restaurant.products}`)
         .then(function (data) {
@@ -283,7 +300,7 @@ function addToCart(event) {
 
     const food = cart.find(function (item) {
       return item.id === id;
-    })
+    });
 
     if (food) {
       food.count++;
@@ -318,7 +335,8 @@ function renderCart() {
 					<button class="counter-button plus-counter" data-id=${id}>+</button>
 				</div>
 			</div>
-		`;
+    `;
+
     if (cart.length > 0)
       modalBody.insertAdjacentHTML('afterbegin', itemCart);
   });
@@ -328,6 +346,8 @@ function renderCart() {
   }, 0);
 
   modalPrice.textContent = totalPrice + " ₽";
+
+  saveCart();
 }
 
 function changeCount(event) {
@@ -340,15 +360,14 @@ function changeCount(event) {
 
     if (target.classList.contains('minus-counter')) {
       food.count--;
-      console.log('minus');
+
       if (!food.count) {
         cart.splice(cart.indexOf(food), 1);
       }
     }
-    if (target.classList.contains('plus-counter')) {
+
+    if (target.classList.contains('plus-counter'))
       food.count++;
-      console.log('plus');
-    }
 
     renderCart();
   }
@@ -365,6 +384,7 @@ function init() {
     restaurants.classList.remove('hide');
     menu.classList.add('hide');
     cartButton.style.display = '';
+    location.hash = '';
 
     if (buttonAuth.style.display !== '')
       buttonOut.style.display = 'block';
@@ -377,15 +397,23 @@ function init() {
 
   modalBody.addEventListener('click', changeCount);
 
+  buttonClearCart.addEventListener('click', function() {
+    if (cart.length > 0) {
+      cart.length = 0;
+      renderCart();
+      toggleModal();
+    }
+  });
+
   buttonClearCart.addEventListener('click', toggleModal);
 
   cartButton.addEventListener('click', function () {
-    if (cart.length == 0) {
+    if (!cart.length) {
       modalBody.insertAdjacentHTML('afterbegin', `
 				<div class="food-row">
-					<span class="food-name">Empty</span>
+					<span class="food-name">Пусто</span>
 				</div>
-			`);
+      `);
     }
   });
 
